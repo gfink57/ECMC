@@ -11,24 +11,6 @@ logger.setLevel(logging.INFO)
 handler = logging.StreamHandler()
 logger.addHandler(handler)
 
-#record formats for unpack functions
-amountRecordFormat = '!iqd'
-autopayRecordFormat = '!iq'
-headerFormat = '!4sBI'
-typeFormat = 'c'
-
-amountSize = 8
-#| 4 byte magic string "MPS7" | 1 byte version | 4 byte (uint32) # of records |
-magicStringSize = 4
-versionSize = 1
-recordCountSize = 4
-
-#| 1 byte record type enum | 4 byte (uint32) Unix timestamp | 8 byte (uint64) user ID | {8 byte (float64) amount }
-timestampSize = 4
-typeSize = 1
-userIdSize = 8
-amountSize = 8
-
 targetUser = 2456938384156277127L
 
 header = ''
@@ -36,15 +18,14 @@ paymentsInName = ''
 
 def main(argv):
     readOptions (argv)
-
+    #extract and count the records 
     totalDebits, totalCredits, autoPaysStarted, autoPaysEnded, targetUserBalance = processPayments(paymentsInName)
-
+    #write a simple report
     reportPayments(totalDebits, totalCredits, autoPaysStarted, autoPaysEnded, targetUserBalance)
 
     return True
 
 def reportPayments(totalDebits, totalCredits, autoPaysStarted, autoPaysEnded, targetUserBalance):
-
     print '{} ${}'.format("Total Debits:", totalDebits)
     print '{} ${}'.format("Total Credits:", totalCredits)
     print '{} {}'.format(autoPaysStarted, "autopays started")
@@ -62,6 +43,13 @@ def processPayments(fileName):
 def readHeader(handle):
     #Data file header format (no delimiters between records):
     #| 4 byte magic string "MPS7" | 1 byte version | 4 byte (uint32) # of records |
+    magicStringSize = 4
+    versionSize = 1
+    recordCountSize = 4
+
+    #record format for unpack function
+    headerFormat = '!4sBI'
+
     rawHeader = handle.read(magicStringSize + versionSize + recordCountSize)
     magic, version, expectedRecords = unpack(headerFormat, rawHeader)
     #input record count index appeart to starts at 0, so we should read (expectedRecords + 1) records
@@ -85,7 +73,15 @@ def readOptions(argv):
 def readPayments(handle):
     #Record format (no delimiters between records):
     #| 1 byte record type enum | 4 byte (uint32) Unix timestamp | 8 byte (uint64) user ID | {8 byte (float64) amount }
-    #recordTypes = enum(Debit = \x00, Credit = \x01, StartAutopay = \x02, EndAutopay = \x03)
+    amountSize = 8
+    timestampSize = 4
+    typeSize = 1
+    userIdSize = 8
+
+    #record formats for unpack functions
+    amountRecordFormat = '!iqd'
+    autopayRecordFormat = '!iq'
+    typeFormat = 'c'
 
     recordsRead = 0
     userId = 0
@@ -102,6 +98,7 @@ def readPayments(handle):
         if not rawType:
             break
         recordsRead += 1
+        #recordTypes = enum(Debit = \x00, Credit = \x01, StartAutopay = \x02, EndAutopay = \x03)
         if rawType == recordTypes.Debit:
             #process Debit
             rawDebitRecord = handle.read(timestampSize + userIdSize + amountSize)
