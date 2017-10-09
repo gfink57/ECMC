@@ -1,6 +1,7 @@
 To run after cloning repo
 =========================
 cd <development home>/ECMC/Payment Processor
+  
 python paymentProcessor.py --payments "data.dat"
 
 Parse a custom protocol format
