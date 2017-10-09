@@ -1,28 +1,40 @@
-import getopt
-import sys
+import getopt, logging, sys
 from struct import *
-import pdb
 
 def enum(**named_values):
     return type('Enum', (), named_values)
 recordTypes = enum(Debit = "\x00", Credit = "\x01", StartAutopay = "\x02", EndAutopay = "\x03")
 
-headerFormat = '!4sBI'
-headerSize = 9
-typeFormat = 'c'
-typeSize = 1
+#set up logger
+logger = logging.getLogger(__name__)
+logger.setLevel(logging.INFO)
+handler = logging.StreamHandler()
+logger.addHandler(handler)
+
+#record formats for unpack functions
 amountRecordFormat = '!iqd'
 autopayRecordFormat = '!iq'
+headerFormat = '!4sBI'
+typeFormat = 'c'
+
+amountSize = 8
+#| 4 byte magic string "MPS7" | 1 byte version | 4 byte (uint32) # of records |
+magicStringSize = 4
+versionSize = 1
+recordCountSize = 4
+
+#| 1 byte record type enum | 4 byte (uint32) Unix timestamp | 8 byte (uint64) user ID | {8 byte (float64) amount }
 timestampSize = 4
+typeSize = 1
 userIdSize = 8
 amountSize = 8
+
 targetUser = 2456938384156277127L
 
 header = ''
 paymentsInName = ''
 
 def main(argv):
-    #recordTypes = enum(Debit = \x00, Credit = \x01, StartAutopay = \x02, EndAutopay = \x03)
     readOptions (argv)
 
     totalDebits, totalCredits, autoPaysStarted, autoPaysEnded, targetUserBalance = processPayments(paymentsInName)
@@ -48,10 +60,12 @@ def processPayments(fileName):
     return (totalDebits, totalCredits, autoPaysStarted, autoPaysEnded, targetUserBalance)
 
 def readHeader(handle):
-    rawHeader = handle.read(headerSize)
+    #Data file header format (no delimiters between records):
+    #| 4 byte magic string "MPS7" | 1 byte version | 4 byte (uint32) # of records |
+    rawHeader = handle.read(magicStringSize + versionSize + recordCountSize)
     magic, version, expectedRecords = unpack(headerFormat, rawHeader)
-    #input record count index appeart to starts at 0.
-    print 'Protocol: {}, Version: {}, Records: {}'.format(magic, version, expectedRecords + 1)
+    #input record count index appeart to starts at 0, so we should read (expectedRecords + 1) records
+    print 'Protocol: {}, Version: {}, Records: {}'.format(magic, version, expectedRecords)
 
 def readOptions(argv):
     global paymentsInName
@@ -69,7 +83,10 @@ def readOptions(argv):
           paymentsInName ='data.dat'
 
 def readPayments(handle):
-    #Record:    | 1 byte record type enum | 4 byte (uint32) Unix timestamp | 8 byte (uint64) user ID |
+    #Record format (no delimiters between records):
+    #| 1 byte record type enum | 4 byte (uint32) Unix timestamp | 8 byte (uint64) user ID | {8 byte (float64) amount }
+    #recordTypes = enum(Debit = \x00, Credit = \x01, StartAutopay = \x02, EndAutopay = \x03)
+
     recordsRead = 0
     userId = 0
     timestamp = 0
@@ -90,28 +107,28 @@ def readPayments(handle):
             rawDebitRecord = handle.read(timestampSize + userIdSize + amountSize)
             timestamp, userId, amount = unpack(amountRecordFormat, rawDebitRecord)
             totalDebits += round(amount, 2)
-            #print '{} {} {}'.format(timestamp, userId, amount)
+            logger.debug('{} {} {}'.format(timestamp, userId, amount))
         elif rawType == recordTypes.Credit:
             #process Credit
             rawCreditRecord = handle.read(timestampSize + userIdSize + amountSize)
             timestamp, userId, amount = unpack(amountRecordFormat, rawCreditRecord)
             totalCredits += round(amount, 2)
-            #print '{} {} {}'.format(timestamp, userId, amount)
+            logger.debug('{} {} {}'.format(timestamp, userId, amount))
         elif rawType == recordTypes.StartAutopay:
             #process start autopay
             autoPaysStarted += 1
             rawRecord = handle.read(timestampSize + userIdSize)
             timestamp, userId = unpack(autopayRecordFormat, rawRecord)
-            #print '{} {}'.format(timestamp, userId)
+            logger.debug('{} {}'.format(timestamp, userId))
         elif rawType == recordTypes.EndAutopay:
             #process start autopay
             autoPaysEnded += 1
             rawRecord = handle.read(timestampSize + userIdSize)
             timestamp, userId = unpack(autopayRecordFormat, rawRecord)
-            #print '{} {}'.format(timestamp, userId)
+            logger.debug('{} {}'.format(timestamp, userId))
         else:
-            print '{} {}'.format(rawType, "is invalid")
-        #pdb.set_trace()
+            logger.INFO('{} {}'.format(rawType, "is invalid"))
+
         if userId == targetUser:
             if rawType == recordTypes.Debit:
                 targetUserBalance -= round(amount)
