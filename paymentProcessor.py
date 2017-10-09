@@ -14,19 +14,9 @@ typeSize = 1
 amountRecordFormat = '!iqd'
 autopayRecordFormat = '!iq'
 timestampSize = 4
-timestampFormat = 'I'
 userIdSize = 8
-userIdFormat = 'Q'
-amountFormat = 'd'
 amountSize = 8
-
-totalDebits = 0
-totalCredits = 0
-autopaysStarted = 0
-autopaysEnded =    0
-
-targetUserBalance = 0
-targetUser = '2456938384156277127'
+targetUser = 2456938384156277127L
 
 header = ''
 paymentsInName = ''
@@ -35,13 +25,36 @@ def main(argv):
     #recordTypes = enum(Debit = \x00, Credit = \x01, StartAutopay = \x02, EndAutopay = \x03)
     readOptions (argv)
 
-    processPayments(paymentsInName)
+    totalDebits, totalCredits, autoPaysStarted, autoPaysEnded, targetUserBalance = processPayments(paymentsInName)
 
-    evaluatePayments()
+    reportPayments(totalDebits, totalCredits, autoPaysStarted, autoPaysEnded, targetUserBalance)
 
     return True
 
+def reportPayments(totalDebits, totalCredits, autoPaysStarted, autoPaysEnded, targetUserBalance):
+
+    print '{} ${}'.format("Total Debits:", totalDebits)
+    print '{} ${}'.format("Total Credits:", totalCredits)
+    print '{} {}'.format(autoPaysStarted, "autopays started")
+    print '{} {}'.format(autoPaysEnded, "autopays ended")
+    print '{} {} {} ${:.2f}'.format("User", targetUser, "Balance:", targetUserBalance)
+
+
+def processPayments(fileName):
+    with open(fileName, "r+b") as f:
+        readHeader(f)
+        totalDebits, totalCredits, autoPaysStarted, autoPaysEnded, targetUserBalance = readPayments(f)
+
+    return (totalDebits, totalCredits, autoPaysStarted, autoPaysEnded, targetUserBalance)
+
+def readHeader(handle):
+    rawHeader = handle.read(headerSize)
+    magic, version, expectedRecords = unpack(headerFormat, rawHeader)
+    #input record count index appeart to starts at 0.
+    print 'Protocol: {}, Version: {}, Records: {}'.format(magic, version, expectedRecords + 1)
+
 def readOptions(argv):
+    global paymentsInName
     try:
       opts, args = getopt.getopt(argv,"hp:", ["help", "payments="])
     except getopt.GetoptError:
@@ -55,19 +68,8 @@ def readOptions(argv):
       else:
           paymentsInName ='data.dat'
 
-def processPayments(fileName):
-    with open('data.dat', "r+b") as f:
-        readHeader(f)
-        readPayments(f)
-
-
-def evaluatePayments():
-    return True
-
-
 def readPayments(handle):
     #Record:    | 1 byte record type enum | 4 byte (uint32) Unix timestamp | 8 byte (uint64) user ID |
-    targetUser = 2456938384156277127L
     recordsRead = 0
     userId = 0
     timestamp = 0
@@ -82,7 +84,6 @@ def readPayments(handle):
         rawType = handle.read(typeSize)
         if not rawType:
             break
-        #pdb.set_trace()
         recordsRead += 1
         if rawType == recordTypes.Debit:
             #process Debit
@@ -117,21 +118,8 @@ def readPayments(handle):
             elif rawType == recordTypes.Credit:
                 targetUserBalance += round(amount)
 
-    print '{} ${}'.format("Total Debits:", totalDebits)
-    print '{} ${}'.format("Total Credits:", totalCredits)
-    print '{} {}'.format(autoPaysStarted, "autopays started")
-    print '{} {}'.format(autoPaysEnded, "autopays ended")
-    print '{} {} {} ${:.2f}'.format("User", targetUser, "Balance:", targetUserBalance)
+    return (totalDebits, totalCredits, autoPaysStarted, autoPaysEnded, targetUserBalance)
 
-
-def readHeader(handle):
-    rawHeader = handle.read(headerSize)
-    magic, version, expectedRecords = unpack(headerFormat, rawHeader)
-    #record count starts at 0.
-    print 'Protocol: {}, Version: {}, Records: {}'.format(magic, version, expectedRecords + 1)
-
-def enum(**named_values):
-    return type('Enum', (), named_values)
 
 if __name__=='__main__':
     main(sys.argv[1:])
