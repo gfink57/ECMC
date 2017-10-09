@@ -1,3 +1,8 @@
+To run after cloning repo
+=========================
+cd <development home>/ECMC/Payment Processor
+python paymentProcessor.py --payments "data.dat"
+
 Parse a custom protocol format
 ==============================
 
@@ -12,11 +17,12 @@ specification in Notes below.
 
 You must answer the following questions:
 
-* What is the total amount in dollars of debits? 
-* What is the total amount in dollars of credits? 
+* What is the total amount in dollars of debits?
+* What is the total amount in dollars of credits?
 * How many autopays were started?
 * How many autopays were ended?
 * What is balance of user ID 2456938384156277127?
+
 
 You must supply your source code as part of your answer. Write your code in your
 best programming language.
