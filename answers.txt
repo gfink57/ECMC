@@ -1,0 +1,6 @@
+Protocol: MPS7, Version: 1, Records: 71
+Total Debits: $18203.69
+Total Credits: $10073.34
+10 autopays started
+8 autopays ended
+User 2456938384156277127 Balance: $0.00
