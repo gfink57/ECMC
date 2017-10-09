@@ -1,6 +1,6 @@
 To run after cloning repo
 =========================
-cd <development home>/ECMC/Payment Processor
+cd {development home}/ECMC/Payment Processor
   
 python paymentProcessor.py --payments "data.dat"
 
