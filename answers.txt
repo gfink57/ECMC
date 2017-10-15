@@ -1,6 +1,7 @@
 Protocol: MPS7, Version: 1, Records: 71
+Read 21 bytes beyond expected number of records: ['0x1', '0x53', '0x2d', '0xcd', '0x5a', '0x5b', '0x38', '0x87', '0x4a', '0x2a', '0x23', '0x40', '0xe1', '0x40', '0x86', '0x1a', '0xb8', '0x37', '0x1a', '0xf1', '0xea']
 Total Debits: $18203.69
-Total Credits: $10073.34
+Total Credits: $9366.0
 10 autopays started
 8 autopays ended
 User 2456938384156277127 Balance: $0.00

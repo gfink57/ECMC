@@ -1,4 +1,5 @@
 import getopt, logging, sys
+from array import array
 from struct import *
 
 def enum(**named_values):
@@ -18,7 +19,7 @@ paymentsInName = ''
 
 def main(argv):
     readOptions (argv)
-    #extract and count the records 
+    #extract and count the records
     totalDebits, totalCredits, autoPaysStarted, autoPaysEnded, targetUserBalance = processPayments(paymentsInName)
     #write a simple report
     reportPayments(totalDebits, totalCredits, autoPaysStarted, autoPaysEnded, targetUserBalance)
@@ -35,8 +36,9 @@ def reportPayments(totalDebits, totalCredits, autoPaysStarted, autoPaysEnded, ta
 
 def processPayments(fileName):
     with open(fileName, "r+b") as f:
-        readHeader(f)
-        totalDebits, totalCredits, autoPaysStarted, autoPaysEnded, targetUserBalance = readPayments(f)
+        expectedRecords = readHeader(f)
+        totalDebits, totalCredits, autoPaysStarted, autoPaysEnded, targetUserBalance = \
+            readPayments(f, expectedRecords)
 
     return (totalDebits, totalCredits, autoPaysStarted, autoPaysEnded, targetUserBalance)
 
@@ -54,6 +56,7 @@ def readHeader(handle):
     magic, version, expectedRecords = unpack(headerFormat, rawHeader)
     #input record count index appeart to starts at 0, so we should read (expectedRecords + 1) records
     print 'Protocol: {}, Version: {}, Records: {}'.format(magic, version, expectedRecords)
+    return expectedRecords
 
 def readOptions(argv):
     global paymentsInName
@@ -70,7 +73,7 @@ def readOptions(argv):
       else:
           paymentsInName ='data.dat'
 
-def readPayments(handle):
+def readPayments(handle, recordsExpected):
     #Record format (no delimiters between records):
     #| 1 byte record type enum | 4 byte (uint32) Unix timestamp | 8 byte (uint64) user ID | {8 byte (float64) amount }
     amountSize = 8
@@ -93,7 +96,9 @@ def readPayments(handle):
     totalDebits = 0
     totalCredits = 0
 
-    while True:
+    #remainder = Empty
+
+    while recordsRead < recordsExpected :
         rawType = handle.read(typeSize)
         if not rawType:
             break
@@ -124,13 +129,22 @@ def readPayments(handle):
             timestamp, userId = unpack(autopayRecordFormat, rawRecord)
             logger.debug('{} {}'.format(timestamp, userId))
         else:
-            logger.INFO('{} {}'.format(rawType, "is invalid"))
+            logger.info('{} {}'.format(rawType, "is invalid"))
 
         if userId == targetUser:
             if rawType == recordTypes.Debit:
                 targetUserBalance -= round(amount)
             elif rawType == recordTypes.Credit:
                 targetUserBalance += round(amount)
+
+    #Anything missing or extra in the file?
+    remainder = handle.read()
+    if recordsRead < recordsExpected:
+        logger.info('Read {}, expected {}'.format(recordsRead, recordsExpected))
+    elif len(remainder) > 0:
+        remainderAsBytes = array("B", remainder)
+        logger.info('Read {} bytes beyond expected number of records: {}'.format(len(remainder), map(hex,remainderAsBytes)))
+
 
     return (totalDebits, totalCredits, autoPaysStarted, autoPaysEnded, targetUserBalance)
 
